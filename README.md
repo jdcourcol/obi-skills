@@ -28,6 +28,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format and live under 
 | [`single-cell-simulation-api`](./skills/single-cell-simulation-api/SKILL.md) | ME-model building and single-neuron simulation |
 | [`skeletonization-api`](./skills/skeletonization-api/SKILL.md) | Skeletonization campaigns via obi-one / EntityCore |
 | [`synapse-parameterization`](./skills/synapse-parameterization/SKILL.md) | Assign synaptic physiology to a circuit's connections |
+| [`synaptome-simulation-api`](./skills/synaptome-simulation-api/SKILL.md) | Simulate a single-neuron synaptome (ME-model with synapses) circuit |
 | [`virtual-lab-manager-api`](./skills/virtual-lab-manager-api/SKILL.md) | Virtual labs, projects, and credits |
 
 Example install with the skills CLI (if you use it):

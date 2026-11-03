@@ -11,7 +11,7 @@ license: Apache-2.0
 > - [[chat-obi-sandbox-bridge]] — (Claude Chat / Claude Desktop) run heavy work on the OBI sandbox, and get result files back to the user from there.
 > - [[obi-logbook]] — **mandatory.** Keep a scientific logbook for every synaptome-building session. See the Logbook section below.
 > - [[obi-links]] — every entity id, sandbox file, and launched campaign handed to the user goes out as a hyperlink, never as a bare UUID or path. See the Linking section below.
-> - [[single-cell-simulation-api]] — where the resulting synaptome Circuit goes next: single-neuron-with-synapses simulation. Read it if the user wants to simulate what they build here.
+> - [[synaptome-simulation-api]] — where the resulting synaptome Circuit goes next: single-neuron-with-synapses simulation. Read it if the user wants to simulate what they build here. (For a synapse-free ME-model simulation instead, see [[single-cell-simulation-api]].)
 
 ## Overview
 

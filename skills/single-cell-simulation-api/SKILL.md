@@ -7,12 +7,14 @@ license: Apache-2.0
 # Single Cell / ME Model Building & Simulation
 
 > **Generic skills this one builds on — follow them, don't re-derive:**
-> - [[obi-sandbox-auth]] — how to obtain, exchange, and refresh OBI credentials, and the offline-access consent flow. Note that the auth-manager issues described in Part 6 are governed by this skill; consult it before falling back to the bluecellulab workaround.
+> - [[obi-sandbox-auth]] — how to obtain, exchange, and refresh OBI credentials, and the offline-access consent flow. Note that the auth-manager issues described in Part 5 are governed by this skill; consult it before falling back to the bluecellulab workaround.
 > - [[chat-obi-sandbox-bridge]] — (Claude Chat / Claude Desktop) run bluecellulab and other heavy work on the OBI sandbox, and get result files (voltage traces, plots) back to the user from there.
 > - [[obi-logbook]] — **mandatory.** Keep a scientific logbook for every model-building or simulation session. See the Logbook section below.
 > - [[obi-links]] — every entity id, sandbox file, and launched campaign handed to the user goes out as a hyperlink, never as a bare UUID or path. See the Linking section below.
 
 ## Overview
+
+This skill covers the **synapse-free** single neuron (ME model). To simulate an ME-model **with synapses** (a synaptome), use [[synaptome-simulation-api]] — it takes a synaptome Circuit as input and launches with a different task type. Don't reuse the task types below for a synaptome run.
 
 Single-cell workflows in OBI:
 
@@ -280,26 +282,11 @@ POST /api/obi-one/declared/task/launch
 }
 ```
 
-**Note:** This requires a stored refresh token in auth-manager (browser-based login). See Part 6 for workaround.
+**Note:** This requires a stored refresh token in auth-manager (browser-based login). See Part 5 for workaround.
 
 ---
 
-## Part 4: ME Model with Synapses (Synaptome)
-
-**Endpoint:** `POST /api/obi-one/generated/me-model-with-synapses-circuit-simulation-scan-config-generate-grid`
-
-Uses `MEModelWithSynapsesCircuitFromID` instead of `MEModelFromID`. Launch with:
-
-```json
-{
-  "task_type": "single_neuron_synaptome_simulation_execution",
-  "config_id": "<simulation-uuid>"
-}
-```
-
----
-
-## Part 5: Real-Time Simulation (Small-Scale-Simulator)
+## Part 4: Real-Time Simulation (Small-Scale-Simulator)
 
 For interactive exploration — no campaign needed, immediate results.
 
@@ -333,7 +320,7 @@ For interactive exploration — no campaign needed, immediate results.
 
 ---
 
-## Part 6: Sandbox Simulation with bluecellulab (Workaround)
+## Part 5: Sandbox Simulation with bluecellulab (Workaround)
 
 When `task/launch` fails with `token_not_found` (auth-manager doesn't have a refresh token for the session — common with MCP/API-only access), use bluecellulab directly in the Python sandbox.
 
@@ -460,7 +447,7 @@ The key step is `stage_sonata_from_memodel` from `entitysdk.staging.memodel` —
 5. Simulate the new ME model
    - Real-time: POST /api/small-scale-simulator/single-neuron/simulation/run
    - Campaign: obi-one generate-grid → task/launch
-   - Sandbox: bluecellulab (see Part 6)
+   - Sandbox: bluecellulab (see Part 5)
 ```
 
 ## Advising Users on E-Model Selection
@@ -506,7 +493,7 @@ All files this workflow produces go under the conversation's topic directory on 
 └── code/
 ```
 
-`logbook.md`, `results/`, `plots/`, and `code/` are fixed by [[obi-logbook]]; the rest are this workflow's inputs. When running bluecellulab in the sandbox (Part 6), stage the circuit under `me-model/` rather than `/tmp` — `/tmp` is ephemeral overlay storage and will not survive.
+`logbook.md`, `results/`, `plots/`, and `code/` are fixed by [[obi-logbook]]; the rest are this workflow's inputs. When running bluecellulab in the sandbox (Part 5), stage the circuit under `me-model/` rather than `/tmp` — `/tmp` is ephemeral overlay storage and will not survive.
 
 ## Logbook
 
@@ -518,13 +505,13 @@ Record, as the session goes:
 - **Morphology chosen** — name, cell type (m-type), brain region, species/strain, reconstruction provenance, and why this morphology over the alternatives.
 - **E-model chosen** — name, e-type, what firing behaviour it reproduces, and the reason it was paired with this morphology. If the compatibility check drove the choice, record the *biological* reason the e-type suits the m-type, not the check itself.
 - **E-features** (when extracting) — which experimental traces were used, which features were extracted, and their values with units and spread across cells.
-- **Simulation protocol** — stimulus type and amplitude, injection site, holding potential, duration, temperature, recorded variables and locations, number of repetitions. For synaptome work: synapse types, counts, placement rule, release probability, and their sources.
+- **Simulation protocol** — stimulus type and amplitude, injection site, holding potential, duration, temperature, recorded variables and locations, number of repetitions.
 - **Parameter sweeps** — what varies, over what range, and the physiological reason for that range.
 - **Results** — firing rate, spike count, threshold current (rheobase), latency, adaptation, voltage amplitudes — all with units — plus figures and what each shows.
 - **Interpretation and caveats** — what the cell's behaviour means for the objective; limits of the model (single cell in isolation, no network input, parameter fitted at a different temperature, etc.).
 - **Provenance table** — morphology, e-model, ME-model, campaign and simulation IDs.
 
-If work ran through bluecellulab in the sandbox rather than the campaign path (Part 6), that is a plumbing detail: the logbook records the same science either way, and the choice only appears as a caveat if it changed the simulation itself (e.g. a different solver setting or timestep).
+If work ran through bluecellulab in the sandbox rather than the campaign path (Part 5), that is a plumbing detail: the logbook records the same science either way, and the choice only appears as a caveat if it changed the simulation itself (e.g. a different solver setting or timestep).
 
 Do **not** log endpoints, launch/polling mechanics, auth-manager issues, or the workaround decision itself — see the "What never goes in" list in [[obi-logbook]].
 
@@ -532,13 +519,13 @@ Do **not** log endpoints, launch/polling mechanics, auth-manager issues, or the 
 
 **Link everything.** Per [[obi-links]], every entity, file, and campaign mentioned in a reply goes out as a hyperlink — a bare UUID or a bare path is a defect, not a style choice. `{domain}` is `staging.openbraininstitute.org` on staging, `www.openbraininstitute.org` on production, and must match the environment the calls ran against.
 
-- **Entities** — `https://{domain}/app/entity/{id}`. Link the morphology and e-model chosen, the ME model created, the synaptome, the electrical recordings used for e-feature extraction, and the campaigns and simulations produced. Link the ids in the provenance table too.
-- **Sandbox files** — voltage traces, plots, and staged models: take the `download_url` from `{obi}:get-sandbox-download-url` and swap `/files/` for `/lab/tree/`, keeping the rest of the path (`home/jovyan` included). This applies to bluecellulab output from Part 6 exactly as it does to campaign results.
+- **Entities** — `https://{domain}/app/entity/{id}`. Link the morphology and e-model chosen, the ME model created, the electrical recordings used for e-feature extraction, and the campaigns and simulations produced. Link the ids in the provenance table too.
+- **Sandbox files** — voltage traces, plots, and staged models: take the `download_url` from `{obi}:get-sandbox-download-url` and swap `/files/` for `/lab/tree/`, keeping the rest of the path (`home/jovyan` included). This applies to bluecellulab output from Part 5 exactly as it does to campaign results.
 - **Launched jobs** — `https://{domain}/app/virtual-lab/{vlab_id}/{project_id}/workflows?tactivity={activity}&ttype={type}`, always with both parameters:
   - ME model build → `tactivity=build&ttype=memodel`
-  - Synaptome build → `tactivity=build&ttype=single_neuron_synaptome`
   - ME model simulation campaign → `tactivity=simulate&ttype=single_neuron_simulation`
-  - Synaptome simulation → `tactivity=simulate&ttype=single_neuron_synaptome_simulation`
   - ME-model *circuit* simulation → `tactivity=simulate&ttype=me_model_circuit_simulation`
 
-  Real-time small-scale-simulator runs (Part 5) and sandbox bluecellulab runs (Part 6) are not campaigns and have no activity page — link the entities and the output files instead.
+  (Synaptome build and synaptome simulation links live in [[build-synaptome]] and [[synaptome-simulation-api]].)
+
+  Real-time small-scale-simulator runs (Part 4) and sandbox bluecellulab runs (Part 5) are not campaigns and have no activity page — link the entities and the output files instead.
