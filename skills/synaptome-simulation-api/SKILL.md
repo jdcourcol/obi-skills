@@ -15,10 +15,13 @@ license: Apache-2.0
 
 ## What this skill is (and is not)
 
-A **synaptome** is a single postsynaptic ME-model with afferent synapses placed on its morphology, registered as a single-cell **Circuit** (`target_simulator = NEURON`). This skill **simulates** an already-built synaptome.
+A **synaptome** is a single postsynaptic ME-model with afferent synapses placed on its morphology, registered as a single-cell **Circuit** (`scale = single`, `target_simulator = NEURON`). This skill **simulates** an already-built synaptome.
 
 - To **build** the synaptome Circuit (place the synapses) → [[build-synaptome]]. That step comes first; it produces the Circuit this skill consumes.
 - To simulate a **synapse-free** ME-model → [[single-cell-simulation-api]] (uses a different input entity and a different task type; see the note below).
+- To simulate a **multi-neuron** circuit (`scale` = `pair`, `small`, `microcircuit`, `region`, `system`, `whole_brain`) → [[obi-circuit-simulation]].
+
+> **A synaptome is a `scale=single` Circuit, so generic circuit simulation looks right but isn't** — [[obi-circuit-simulation]]'s `CircuitSimulationScanConfig` runs but produces a campaign the UI can't open. Route `scale=single` here.
 
 Pipeline:
 
