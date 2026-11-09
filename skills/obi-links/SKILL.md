@@ -164,4 +164,4 @@ The activity page lists jobs by type; it does not deep-link one job. So pair the
 
 - **Entity links: yes.** Link the ids in the provenance table — they stay valid indefinitely and take a reader straight to the data.
 - **Output files: the plain path, not the link.** JupyterLab URLs carry the current server id and die with it; the path stays valid for as long as the volume does.
-- **Download URLs and tokens: never.** Those are single-use credentials, not provenance. Workflow-activity links are session plumbing too — they belong in the reply, not the record.
+- **Download/upload fetch links: never.** Those are short-lived, single-file credentials, not provenance. Workflow-activity links are session plumbing too — they belong in the reply, not the record.

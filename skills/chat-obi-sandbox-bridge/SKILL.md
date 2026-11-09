@@ -11,7 +11,7 @@ license: Apache-2.0
 
 Two separate, non-connected sandboxes are in play. Knowing which one to use, and how to bridge them, is the whole point of this skill.
 
-> **Related generic skills:** [[obi-links]] — a bridged file should also reach the user as a **link** into JupyterLab, built from the very `download_url` this skill already fetches. See "Link the file, not just bridge it" below. [[obi-logbook]] for the topic-directory convention every path here assumes.
+> **Related generic skills:** [[obi-links]] — a bridged file should also reach the user as a **link** into JupyterLab, built from the `download_url` this skill already fetches (not the same field as the fetchable `fetch_url` — see "Link the file, not just bridge it" below). [[obi-logbook]] for the topic-directory convention every path here assumes.
 
 > **A note on naming:** the OBI (Open Brain Institute) MCP server can be connected under any name the user chooses (e.g. `OBI-local`, `OBI-staging`, `OBI-prod`, `neuroagent` — the server's former and still occasionally used name — or something else entirely) — check the actual tool list in this conversation for the exact prefix in use. The tool *suffixes* are fixed regardless of server name: `execute-python`, `execute-shell`, `get-sandbox-download-url`, `get-sandbox-upload-url`, etc. Throughout this skill, `{obi}` stands in for whatever that connector is named here — e.g. `{obi}:execute-python` means "the `execute-python` tool on the connected OBI server, whatever it's called."
 
@@ -32,22 +32,22 @@ Two separate, non-connected sandboxes are in play. Knowing which one to use, and
 
 There is no direct sandbox-to-sandbox transfer. The only supported path is:
 
-**OBI sandbox → signed download URL → `bash_tool` curl → Anthropic sandbox disk → `present_files`**
+**OBI sandbox → short-lived fetch link → `bash_tool` curl → Anthropic sandbox disk → `present_files`**
 
-This keeps large binary data off the model's context window entirely (it never appears as text in the conversation — only a small JSON with a URL and token does).
+This keeps large binary data off the model's context window entirely (it never appears as text in the conversation — only a small JSON with a URL does). The link is self-contained (no `Authorization` header to carry around) and expires in minutes, scoped to exactly this one file — nothing more is ever placed in the model's context.
 
 ### Step-by-step
 
 1. **Run the compute on OBI.**
    Use `{obi}:execute-python` or `{obi}:execute-shell` to do the actual work. Write output file(s) into the conversation's topic directory, following the layout in [[obi-logbook]] — figures to `/home/jovyan/<topic>/plots/`, data to `/home/jovyan/<topic>/results/`. Don't invent ad-hoc output paths; the bridge needs an absolute path anyway, and the convention gives you one that persists and stays traceable.
 
-2. **Get a download URL for each output file.**
-   Call `{obi}:get-sandbox-download-url` with that absolute path. It returns a download URL, an auth token, and a ready-to-use `curl_command`. One call per file — it does not accept a directory or glob.
+2. **Get a fetch link for each output file.**
+   Call `{obi}:get-sandbox-download-url` with that absolute path. It returns a `fetch_url` and a ready-to-use `curl_command` — no `Authorization` header needed. It also returns `download_url`, which is **not** fetchable on its own; that field only exists to build the JupyterLab link in "Link the file, not just bridge it" below. One call per file — it does not accept a directory or glob. The fetch link expires after `expires_in_seconds` (currently 300); if too much time passes before step 3, just call the tool again for a fresh one.
 
 3. **Download it into the Anthropic sandbox via `bash_tool`.**
-   Run the returned `curl_command` (or reconstruct it with the URL + `Authorization` header) inside `bash_tool`, writing straight to `/mnt/user-data/outputs/`, e.g.:
+   Run the returned `curl_command` inside `bash_tool`, writing straight to `/mnt/user-data/outputs/`, e.g.:
    ```bash
-   curl -sS -H "Authorization: Bearer <token>" "<download_url>" -o /mnt/user-data/outputs/result.png
+   curl -sS "<fetch_url>" -o /mnt/user-data/outputs/result.png
    ```
    Do this for every file you need to hand back. This is a normal `bash_tool` call — no special handling needed, and since it downloads straight to disk, the file bytes never pass through the model's context.
 
@@ -65,13 +65,13 @@ plt.savefig('/home/jovyan/<topic>/plots/plot.png')
 """)
 ```
 ```
-# 2. Get a signed URL for that one file
+# 2. Get a fetch link for that one file
 {obi}:get-sandbox-download-url(path="/home/jovyan/<topic>/plots/plot.png")
-# -> { url: "...", token: "...", curl_command: "curl -H 'Authorization: Bearer ...' '...' -o plot.png" }
+# -> { download_url: "...", fetch_url: "...", curl_command: "curl '...' -o plot.png", expires_in_seconds: 300 }
 ```
 ```bash
 # 3. Pull it into the Anthropic sandbox (bash_tool)
-curl -sS -H "Authorization: Bearer <token>" "<url>" -o /mnt/user-data/outputs/plot.png
+curl -sS "<fetch_url>" -o /mnt/user-data/outputs/plot.png
 ```
 ```
 # 4. Hand it to the user
@@ -84,33 +84,25 @@ Files the user uploads through the Claude Chat interface land in the **Anthropic
 
 There is no direct sandbox-to-sandbox transfer here either. The only supported path is:
 
-**User upload → `/mnt/user-data/uploads/` → `bash_tool` base64-encode → signed upload URL → OBI sandbox filesystem**
+**User upload → `/mnt/user-data/uploads/` → `bash_tool` PUT → short-lived upload link → OBI sandbox filesystem**
 
 ### Step-by-step
 
 1. **Pick the destination and confirm the directory exists on OBI first.**
    Send uploads into the conversation's topic directory, per the layout in [[obi-logbook]] — an input directory named for what the file is (`inputs/`, `recordings/`, `meshes/`, `source/`), not a scratch path. A file the user handed over is provenance: it needs to sit with the work that consumed it.
 
-   `get-sandbox-upload-url` writes via Jupyter's Contents API, which does **not** create parent directories — it fails with `[Errno 2] No such file or directory` if the target folder is missing. Run `{obi}:execute-shell(command="mkdir -p /home/jovyan/<topic>/inputs")` before requesting the upload URL, or the first attempt will fail.
+   The upload is written via Jupyter's Contents API under the hood, which does **not** create parent directories — it fails with `[Errno 2] No such file or directory` if the target folder is missing. Run `{obi}:execute-shell(command="mkdir -p /home/jovyan/<topic>/inputs")` before requesting the upload link, or the attempt will fail.
 
-2. **Get an upload URL for the destination path.**
-   Call `{obi}:get-sandbox-upload-url` with the absolute destination path (e.g. `/home/jovyan/<topic>/inputs/sample-image.jpg`). It returns a URL, a short-lived auth token, and a template `curl_command`.
+2. **Get an upload link for the destination path.**
+   Call `{obi}:get-sandbox-upload-url` with the absolute destination path (e.g. `/home/jovyan/<topic>/inputs/sample-image.jpg`). It returns an `upload_url` and a ready-to-use `curl_command` — PUT the raw file bytes to it directly, no JSON envelope and no `Authorization` header required. It expires after `expires_in_seconds` (currently 300); re-request it if too much time passes before step 3.
 
-3. **Base64-encode the file and build the JSON payload in `bash_tool`.**
-   Unlike the download side, this is not a raw byte PUT — the request body must be JSON of the form:
-   ```json
-   {"type":"file","format":"base64","name":"<basename>","path":"<path-without-leading-slash>","content":"<base64-encoded-file-contents>"}
-   ```
-   Build this with Python (base64 module) rather than trying to inline large base64 strings as shell arguments — write it to a temp JSON file and pass it with `curl -d @payload.json`.
-
-4. **PUT it via `bash_tool`.**
+3. **PUT the raw file bytes via `bash_tool`.**
    ```bash
-   curl -sS -X PUT -H "Authorization: token <token>" -H "Content-Type: application/json" \
-     -d @/tmp/payload.json "<upload_url>"
+   curl -sS -X PUT --data-binary @/mnt/user-data/uploads/sample-image.jpg "<upload_url>"
    ```
-   A `201` response with matching `size` confirms success. As with downloads, the token is short-lived and per-file — fetch it immediately before use, and re-fetch (don't reuse) if a request fails partway or across turns.
+   A `200` response with `"uploaded":true` confirms success.
 
-5. **Verify / use the file on OBI.**
+4. **Verify / use the file on OBI.**
    Confirm with `{obi}:execute-shell(command="ls -la <path>")` or go straight into the compute step (`md5sum`, `execute-python`, etc.).
 
 ### Minimal example
@@ -120,22 +112,13 @@ There is no direct sandbox-to-sandbox transfer here either. The only supported p
 {obi}:execute-shell(command="mkdir -p /home/jovyan/<topic>/inputs")
 ```
 ```python
-# 2. Get an upload URL
+# 2. Get an upload link
 {obi}:get-sandbox-upload-url(path="/home/jovyan/<topic>/inputs/sample-image.jpg")
-# -> { upload_url: "...", token: "...", curl_command: "..." }
+# -> { upload_url: "...", curl_command: "curl -X PUT --data-binary @'<local-file>' '...'", expires_in_seconds: 300 }
 ```
 ```bash
-# 3. Encode + build payload, then PUT (bash_tool)
-python3 -c "
-import base64, json
-with open('/mnt/user-data/uploads/sample-image.jpg','rb') as f:
-    content = base64.b64encode(f.read()).decode()
-json.dump({'type':'file','format':'base64','name':'sample-image.jpg',
-           'path':'home/jovyan/<topic>/inputs/sample-image.jpg','content':content},
-          open('/tmp/payload.json','w'))
-"
-curl -sS -X PUT -H "Authorization: token <token>" -H "Content-Type: application/json" \
-  -d @/tmp/payload.json "<upload_url>"
+# 3. PUT it (bash_tool)
+curl -sS -X PUT --data-binary @/mnt/user-data/uploads/sample-image.jpg "<upload_url>"
 ```
 
 ## The logbook is one of the files to bridge
@@ -144,7 +127,7 @@ Scientific sessions keep a logbook on the OBI sandbox's EFS volume (see [[obi-lo
 
 ## Link the file, not just bridge it
 
-Bridging puts a *copy* of the file in the conversation. The original stays on the OBI sandbox, where the user can open it in JupyterLab — so **always give the link too**, in the same message as the artifact. Per [[obi-links]], the `download_url` this skill already fetches *is* the link, one replacement away:
+Bridging puts a *copy* of the file in the conversation. The original stays on the OBI sandbox, where the user can open it in JupyterLab — so **always give the link too**, in the same message as the artifact. Per [[obi-links]], the `download_url` field `get-sandbox-download-url` returns (not the fetchable `fetch_url`) *is* the link, one replacement away:
 
 ```python
 lab_url = download_url.replace("/files/", "/lab/tree/", 1)
@@ -161,8 +144,8 @@ Two things to respect: `{server_id}` belongs to the current sandbox, so a link d
 
 ## Key constraints to keep in mind
 
-- **One file per `get-sandbox-download-url`/`get-sandbox-upload-url` call.** For multiple files, loop: get-url → curl → repeat, or `tar`/`zip` them first (download side: zip on OBI, pull the archive; upload side: push the archive, then unzip on OBI).
-- **Tokens are short-lived and per-file** — fetch the URL immediately before downloading/uploading; don't cache and reuse across turns.
-- **If a download/upload URL or `execute-python` call returns a 401 / token-expired error**, call `{obi}:kill-sandbox` to stop and remove the current sandbox — a fresh token is issued automatically the next time any sandbox tool is called (sandbox creation always starts a new JupyterHub server with a new token). Then retry the original call.
+- **One file per `get-sandbox-download-url`/`get-sandbox-upload-url` call.** For multiple files, loop: get-link → curl → repeat, or `tar`/`zip` them first (download side: zip on OBI, pull the archive; upload side: push the archive, then unzip on OBI).
+- **Fetch/upload links are short-lived and scoped to exactly one file in one direction** — request one, use it right away, and don't cache or reuse it across turns. If it expires before you get to the `curl`, call the tool again for a fresh link rather than retrying the stale one.
+- **If a fetch/upload link returns 401 (expired/invalid) or `execute-python` returns a 401/token-expired error**, just retry: calling `get-sandbox-download-url`/`get-sandbox-upload-url` again mints a fresh link, and any sandbox tool call re-starts the sandbox if it had gone idle. `{obi}:kill-sandbox` is for when the sandbox itself is stuck or unresponsive, not for an expired link.
 - **Anthropic sandbox has no general internet egress by default.** The `curl` calls above will fail with `"Host not in allowlist"` unless network egress is enabled. **This is a one-time setup step the user must do themselves**, at **Settings → Capabilities → "Allow network egress"**. Turn the toggle on, then set the **Domain allowlist** dropdown to **"All domains"** (there is no way to allowlist a single specific host — it's an all-or-nothing dropdown, not a URL list). If a `curl` fails with an allowlist error, tell the user to enable this setting rather than retrying blindly.
 - **Never treat OBI tool output as a place to dump large data as text.** If a call returns a big blob directly (not via the download-url/upload-url mechanism), that content passes through the model's context — prefer writing results to a file on OBI and using the download-url/upload-url path instead, even for moderately-sized data.
