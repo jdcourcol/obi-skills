@@ -1,6 +1,5 @@
 ---
 name: chat-obi-sandbox-bridge
-applies-to-browser-agent: false
 description: Claude Chat (claude.ai) specific — how to route work between the OBI (Open Brain Institute) compute sandbox and the Anthropic sandbox used by Claude Chat. Relies on Claude Chat's own tools (bash_tool, create_file, present_files) and is custom-built for that sandbox/artifact/egress model — do not assume it transfers to other Claude surfaces. Use whenever a task involves heavy computation, scientific/simulation workloads, large data processing, or any OBI tool (execute-python, execute-shell, get-sandbox-download-url, get-sandbox-upload-url) AND the result needs to reach the user as a file/artifact/plot/download, or the user has uploaded a file that OBI-side compute needs to read. Prefer OBI over running compute directly in bash_tool when an OBI connector is available. Also consult any time a file produced on OBI needs to be shown to the user or turned into an artifact, or a user upload needs to reach OBI.
 license: Apache-2.0
 ---
