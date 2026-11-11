@@ -8,7 +8,7 @@ license: Apache-2.0
 
 Every OBI scientific session keeps a logbook. It is the lab notebook for the work: a colleague who was not in the room should be able to read it and understand **what scientific question was asked, what was done to answer it, what came out, and whether to trust it** — without ever needing to know which API was called.
 
-> **Related generic skills:** [[obi-sandbox-auth]] for credentials and consent flows, [[chat-obi-sandbox-bridge]] for getting files from the OBI sandbox to the user (Claude Chat / Claude Desktop). Neither of those belongs in the logbook's *content* — see "What never goes in" below. [[obi-links]] governs how ids, files, and jobs are turned into links; of those, only **entity links** belong in the logbook — see "Links in the logbook" below.
+> **Related generic skills:** [[obi-sandbox-auth]] for credentials and consent flows, [[chat-obi-sandbox-bridge]] for getting files from the OBI sandbox to the user (Claude Chat / Claude Desktop). Neither of those belongs in the logbook's *content* — see "What never goes in" below. [[obi-links]] governs how ids, files, and jobs are turned into links; of those, only **entity links** belong in the logbook — see "Links in the logbook" below. [[obi-research-log]] registers the logbook on the platform as an EntityCore ResearchLog **when the user asks**, and keeps it in sync after that — see "On the platform" below.
 
 ---
 
@@ -58,7 +58,7 @@ Two exceptions, both scientific in nature:
 | | In the logbook? |
 |---|---|
 | **Entity links** — `https://{domain}/app/entity/{id}` | **Yes.** Provenance IDs are science; make the id cells in the provenance table links so a reader can open the entity. Use the domain of the environment the work ran against. |
-| **Output file paths** | **Yes, as plain paths** (`{topic_dir}/plots/comparison.png`). They stay valid as long as the volume does; a JupyterLab URL carries the current sandbox's server id and dies with it. |
+| **Output file paths** | **Yes, as plain paths** (`{topic_dir}/plots/comparison.png`). They stay valid as long as the volume does; a JupyterLab URL carries the current sandbox's server id and dies with it. Embed figures as markdown images, `![<what it shows>]({topic_dir}/plots/comparison.png)`, so that [[obi-research-log]] can carry them to the platform. |
 | **Workflow activity links** | **No.** Session plumbing — hand them to the user in the reply instead. |
 | **Download URLs, tokens, consent URLs** | **Never.** Credentials, not provenance — see "What never goes in" above. |
 
@@ -140,6 +140,8 @@ Append as you go. **Never reconstruct the logbook at the end of the session** �
 | Interpretation forms | What the result means, including surprises and negative results |
 | Session end | Results summary, caveats, next steps; flip `status` to `complete` |
 
+**If the logbook is registered** (its front matter has a `research_log_id`), colleagues may have edited it in the web app: pull their edits before every write, and push at milestones, as in [[obi-research-log]].
+
 Appending is a plain file append on the OBI sandbox:
 
 ```python
@@ -164,6 +166,8 @@ objective: <one line — the scientific question>
 date: <YYYY-MM-DD>
 topic_dir: /home/jovyan/<topic>
 status: in-progress | complete
+research_log_id:    # set by obi-research-log when the user registers the logbook; empty until then
+research_log_env:   # staging | production — the environment research_log_id lives in
 ---
 
 # <Title> — Session Log
@@ -214,7 +218,11 @@ Why these: <rationale for the selection over alternatives>
 
 The logbook is a deliverable, not a byproduct — hand it to the user alongside the figures at the end of the session, and any time they ask what was done.
 
-In Claude Chat / Claude Desktop, finalize the logbook on EFS first, then bridge the finished file over to the user using the pattern in [[chat-obi-sandbox-bridge]]. The copy that reaches the user is a **presentation snapshot**; the canonical copy always stays at `{topic_dir}/logbook.md` and survives the conversation.
+In Claude Chat / Claude Desktop, finalize the logbook on EFS first, then bridge the finished file over to the user using the pattern in [[chat-obi-sandbox-bridge]]. The copy that reaches the user is a **presentation snapshot**.
+
+### On the platform
+
+Until the user registers it, the canonical copy is `{topic_dir}/logbook.md`, which survives the conversation. **Register it only when the user asks** — to share it with the project, publish it, or see it under Reports — using [[obi-research-log]]. After that, the EntityCore ResearchLog is the canonical copy, since project members can edit it in the web app; `logbook.md` becomes the working copy that [[obi-research-log]] keeps in sync. At the end of an unregistered session you may mention once that the logbook can be registered.
 
 ---
 
@@ -222,7 +230,8 @@ In Claude Chat / Claude Desktop, finalize the logbook on EFS first, then bridge 
 
 - **One logbook per topic directory.** Resuming earlier work means appending to that topic's existing logbook, not starting a fresh one — say so explicitly when resuming.
 - **Write it during the session, not after.**
-- **Never log secrets.** No tokens, no consent URLs, no auth headers — see [[obi-sandbox-auth]].
+- **Never log secrets.** No tokens, no consent URLs, no auth headers — see [[obi-sandbox-auth]]. A registered logbook is readable by every member of the project.
+- **Register only on request; sync once registered.** See [[obi-research-log]].
 - **Record negative results.** A modification that changed nothing is a finding and belongs in the logbook.
 - **Units are mandatory** on every numeric value.
 - **Never invent a citation.** If a parameter has no source, record it explicitly as an assumption under Caveats.
