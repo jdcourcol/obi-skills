@@ -39,7 +39,7 @@ npx skills add openbraininstitute/obi-skills
 
 # Claude plugin
 
-The `open-brain-institute` plugin bundles all skills above with the production OBI MCP server, registered as `obi` (`https://cell-a.openbraininstitute.org/api/agent-ts/mcp`). (You may also see this server called `neuroagent`; it is the same server.) The plugin is distributed through this repository, which doubles as a plugin marketplace named `obi`.
+The `open-brain-institute` plugin bundles all skills above with the **staging** OBI MCP server, registered as `obi` (`https://staging.cell-a.openbraininstitute.org/api/agent-ts/mcp`). (You may also see this server called `neuroagent`; it is the same server.) The plugin is distributed through this repository, which doubles as a plugin marketplace named `obi`.
 
 ## Install in Claude Code
 
