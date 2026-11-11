@@ -23,6 +23,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format and live under 
 | [`obi-circuit-simulation`](./skills/obi-circuit-simulation/SKILL.md) | SONATA circuit download, modify, register, and simulate |
 | [`obi-links`](./skills/obi-links/SKILL.md) | Hyperlink entities, sandbox paths, and launched jobs |
 | [`obi-logbook`](./skills/obi-logbook/SKILL.md) | Scientific logbook convention for OBI workflows |
+| [`obi-research-log`](./skills/obi-research-log/SKILL.md) | Register a logbook as an EntityCore ResearchLog (on request) and keep it in sync with web edits |
 | [`obi-sandbox-auth`](./skills/obi-sandbox-auth/SKILL.md) | Auth-manager token exchange and offline consent |
 | [`parameter-scan`](./skills/parameter-scan/SKILL.md) | Shared parameter-scan model behind every obi-one scan-config workflow |
 | [`single-cell-simulation-api`](./skills/single-cell-simulation-api/SKILL.md) | ME-model building and single-neuron simulation |
