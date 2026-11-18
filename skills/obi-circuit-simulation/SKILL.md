@@ -48,7 +48,7 @@ Two disconnected "worlds" exist in this platform, and it matters which one you'r
 - **`Circuit` entities** — a full or partial network (any brain region/cell composition; pick one that fits the task at hand rather than defaulting to a familiar example). Simulated via `CircuitSimulationScanConfig`. Each node's morphology+biophysics pairing lives only inside the circuit's SONATA files (see below) — it is not a queryable entity.
 - **`MEModel` (morpho-electrical model) entities** — a single cell's morphology + electrical model, tracked as its own row in EntityCore. Simulated via a separate `MEModelSimulationScanConfig`.
 
-**These two worlds have no automatic link.** `Circuit` (in `entitycore/app/db/model.py`) has no foreign key to `MEModel`, and only single-cell-scoped entities (`SingleNeuronSimulation`, `SingleNeuronSynaptome`, `SingleNeuronSynaptomeSimulation`) reference `me_model_id`. `obi_one.utils` only ships `register_circuit`, not `register_emodel` — if you need the emodel/single-cell path, you must use `entitysdk` directly (manual entity creation); this is a known platform limitation as of 2026-07. This reference covers both paths.
+**These two worlds have no automatic link.** `Circuit` (in `entitycore/app/db/model.py`) has no foreign key to `MEModel`, and only single-cell-scoped entities (`SingleNeuronSimulation`, `SingleNeuronSynaptome`, `SingleNeuronSynaptomeSimulation`) reference `me_model_id`. `obi_one.db_sdk.registration.circuit` ships `register_circuit`, not `register_emodel` — if you need the emodel/single-cell path, you must use `entitysdk` directly (manual entity creation); this is a known platform limitation as of 2026-07. This reference covers both paths.
 
 ### SONATA file layout, concretely
 
@@ -413,7 +413,7 @@ What you do with these arrays (plotting, statistics) is presentation/analysis, n
 - **No `delay` field on `ConstantCurrentClampSomaticStimulus`.** Use `timestamp_offset` (ms) instead; `delay` causes a 422 `extra_forbidden` error.
 - **Poll with `used__id`, not `simulation_id`.** The correct EntityCore query param on `/simulation-execution` is `used__id=<sim_id>`. The wrong name silently returns all records with `sim_id=None` rather than erroring.
 - **`run-batch` raises `ConnectionError`, not `Timeout`,** when the streaming response times out on read. Catch both `requests.exceptions.Timeout` and `requests.exceptions.ConnectionError`. Better: `stream=True`, read only the first chunk to confirm 202, then stop.
-- **No `register_emodel` helper.** `obi_one.utils` ships `register_circuit` but not an emodel equivalent — use `entitysdk` directly for that entity type.
+- **No `register_emodel` helper.** `obi_one.db_sdk.registration.circuit` ships `register_circuit` but not an emodel equivalent — use `entitysdk` directly for that entity type.
 - **Empty `stimuli: {}` is a silent no-op**, not an error — always include a real stimulus.
 - **Don't `sleep()` inside a single tool/execution call** if the environment has a short per-call timeout (commonly ~30s) — poll via repeated separate calls instead.
 
