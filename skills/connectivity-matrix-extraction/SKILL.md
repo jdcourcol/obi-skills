@@ -52,10 +52,12 @@ A circuit may have several edge populations. If it has exactly one, extraction p
 Configure a `ConnectivityMatrixExtractionScanConfig` and execute its task via `obi_one`. Conceptually:
 
 ```python
-import obi_one as obi
+from obi_one.scientific.tasks.connectivity_matrix_extraction.config import (
+    ConnectivityMatrixExtractionScanConfig,
+)
 
-config = obi.ConnectivityMatrixExtractionScanConfig(
-    initialize=obi.ConnectivityMatrixExtractionScanConfig.Initialize(
+config = ConnectivityMatrixExtractionScanConfig(
+    initialize=ConnectivityMatrixExtractionScanConfig.Initialize(
         circuit=circuit,                     # obi_one Circuit (from the EntityCore circuit)
         edge_population="default",           # optional; auto if the circuit has a single population
         node_attributes=("x", "y", "z", "mtype", "etype", "layer", "synapse_class"),
