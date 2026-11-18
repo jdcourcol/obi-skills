@@ -11,7 +11,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format and live under 
 | [`circuit-customization`](./skills/circuit-customization/SKILL.md) | Derive a customized circuit from a parent by uploading override files |
 | [`circuit-extraction`](./skills/circuit-extraction/SKILL.md) | Extract a simulatable sub-circuit from a larger SONATA circuit |
 | [`connectivity-matrix-extraction`](./skills/connectivity-matrix-extraction/SKILL.md) | Extract a ConnectomeUtilities connectivity matrix from a circuit (in-sandbox) |
-| [`data-integration-api`](./skills/data-integration-api/SKILL.md) | Ingest morphologies, circuits, and metadata via obi-one |
+| [`data-integration-api`](./skills/data-integration-api/SKILL.md) | Ingest morphologies, circuits (incl. modifying and registering them), and metadata via obi-one |
 | [`disease-modeling`](./skills/disease-modeling/SKILL.md) | End-to-end disease / condition modeling on a microcircuit |
 | [`emodel-building`](./skills/emodel-building/SKILL.md) | Build e-models: e-feature extraction + BluePyEModel optimization |
 | [`em-synapse-mapping`](./skills/em-synapse-mapping/SKILL.md) | Map EM-reconstructed afferent synapses onto morphologies → circuit |
@@ -20,7 +20,7 @@ Skills follow the [Agent Skills](https://agentskills.io/) format and live under 
 | [`morphology-with-spines`](./skills/morphology-with-spines/SKILL.md) | Load & analyze spiny morphologies from a CellMorphology or a segmented-spines Circuit (entitysdk / bluepysnap + morph-spines + ConnectomeUtilities) |
 | [`morphoviewer-standalone`](./skills/morphoviewer-standalone/SKILL.md) | Standalone HTML morphology / circuit viewers |
 | [`ngv-metabolism`](./skills/ngv-metabolism/SKILL.md) | Run the NGV unit metabolism model and plot neuronal ATP |
-| [`obi-circuit-simulation`](./skills/obi-circuit-simulation/SKILL.md) | SONATA circuit download, modify, register, and simulate |
+| [`obi-circuit-simulation`](./skills/obi-circuit-simulation/SKILL.md) | SONATA circuit download (staging) and simulation |
 | [`obi-links`](./skills/obi-links/SKILL.md) | Hyperlink entities, sandbox paths, and launched jobs |
 | [`obi-logbook`](./skills/obi-logbook/SKILL.md) | Scientific logbook convention for OBI workflows |
 | [`obi-sandbox-auth`](./skills/obi-sandbox-auth/SKILL.md) | Auth-manager token exchange and offline consent |

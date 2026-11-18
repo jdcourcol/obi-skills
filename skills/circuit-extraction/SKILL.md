@@ -41,7 +41,7 @@ circuit_extraction__campaign (task-config)      ← parent, grid-scan parameters
     └── task-activity (circuit_extraction__config_generation)
 
 on launch → task-activity (circuit_extraction__execution)
-         → Circuit (sub-circuit; root_circuit_id / derivation → parent)   ← output
+         → Circuit (sub-circuit; derivation → parent, root_circuit_id → topmost ancestor)   ← output
 ```
 
 ## Authentication (all requests)
@@ -124,7 +124,7 @@ GET /api/entitycore/task-config?task_config_type=circuit_extraction__config&task
 - **Poll:** `GET /api/obi-one/declared/task/<job-id>`
 - **Stream:** `GET /api/obi-one/declared/task/<job-id>/stream`
 
-On success a new **Circuit** is registered. It links back to the parent via `root_circuit_id` / a `derivation`, and reports its own `number_neurons`, `number_synapses`, `number_connections`, and `scale`.
+On success a new **Circuit** is registered. It links back to the parent via a `derivation` (`root_circuit_id` points to the topmost ancestor, which equals the parent only if the parent is itself a root), and reports its own `number_neurons`, `number_synapses`, `number_connections`, and `scale`.
 
 ## Field Reference
 

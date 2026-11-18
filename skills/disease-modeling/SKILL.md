@@ -1,6 +1,6 @@
 ---
 name: disease-modeling
-description: Claude Chat / Claude Desktop specific — end-to-end autonomous workflow for modeling a disease or neurological condition (Alzheimer's, Parkinson's, epilepsy, etc.) using a small microcircuit from the Open Brain Institute (OBI) platform. Covers literature search, scientific parametrization, and orchestrating the modify → register → simulate → analyze → present pipeline, plus unprompted logbook maintenance. For all circuit/simulation platform mechanics (how to download, modify, register, and simulate a circuit, and what the outputs look like), this skill defers to [[obi-circuit-simulation]] — read that skill alongside this one. Invoke whenever the user asks to model any disease with a microcircuit, or to run an end-to-end disease-modeling workflow on OBI.
+description: Claude Chat / Claude Desktop specific — end-to-end autonomous workflow for modeling a disease or neurological condition (Alzheimer's, Parkinson's, epilepsy, etc.) using a small microcircuit from the Open Brain Institute (OBI) platform. Covers literature search, scientific parametrization, and orchestrating the modify → register → simulate → analyze → present pipeline, plus unprompted logbook maintenance. For all circuit/simulation platform mechanics, this skill defers to [[obi-circuit-simulation]] (how to find, stage, and simulate a circuit, and what the outputs look like) and [[data-integration-api]] (how to modify and register a circuit) — read those skills alongside this one. Invoke whenever the user asks to model any disease with a microcircuit, or to run an end-to-end disease-modeling workflow on OBI.
 license: Apache-2.0
 ---
 
@@ -8,7 +8,7 @@ license: Apache-2.0
 
 > **Scope: Claude Chat / Claude Desktop only.** This skill relies on Claude Chat's tool set — `bash_tool`, `create_file`, `present_files` — and the OBI MCP server. It should not be assumed to apply to other Claude surfaces.
 
-> **Platform mechanics live in [[obi-circuit-simulation]].** This skill is the scientific/process layer: what question to ask, what literature to gather, how to sequence the workflow. For *how* to actually find/download/modify/register a circuit or configure/run/poll a simulation, read and follow [[obi-circuit-simulation]] — do not duplicate that mechanical detail here.
+> **Platform mechanics live in [[obi-circuit-simulation]] and [[data-integration-api]].** This skill is the scientific/process layer: what question to ask, what literature to gather, how to sequence the workflow. For *how* to actually find/download a circuit or configure/run/poll a simulation, read and follow [[obi-circuit-simulation]]; for *how* to modify and register a circuit, follow [[data-integration-api]] — do not duplicate that mechanical detail here.
 
 > **Generic skills this one builds on — follow them, don't re-derive:**
 > - [[obi-logbook]] — the logbook convention: where it lives, when to append, and what belongs in it (the science, never the plumbing). This skill only adds the disease-modeling-specific sections; everything else comes from there.
@@ -125,11 +125,11 @@ After searching, append findings to logbook:
 
 ## Step 2 — Circuit Selection, Modification, Registration, and Simulation
 
-Follow [[obi-circuit-simulation]] for all of the following — it has the concrete recipes, request shapes, and known-bug list:
+Follow [[obi-circuit-simulation]] for finding and simulating, and [[data-integration-api]] ("Modifying a circuit" and "Registering a (modified) circuit to EntityCore") for modifying and registering — they have the concrete recipes, request shapes, and known-bug list:
 
 1. **Find and download a small microcircuit** from EntityCore. Favor circuits small enough to iterate quickly (single-digit to low-double-digit neuron counts) — small circuits are faster to run and easier to interpret; scale up later if the science calls for it.
-2. **Modify the circuit** to apply the literature-derived parameter change(s) from Step 1 — e.g., for Alzheimer's, reducing HCN conductance in CA1 pyramidal cells; for another condition, whatever parameter your literature search identified as disease-relevant. Record the exact modification (parameter, original/new value, rationale, citation) in a `modifications.json` sidecar per [[obi-circuit-simulation]]'s pattern, and append it to the logbook.
-3. **Register the modified circuit** to EntityCore via `register_circuit`.
+2. **Modify the circuit** to apply the literature-derived parameter change(s) from Step 1 — e.g., for Alzheimer's, reducing HCN conductance in CA1 pyramidal cells; for another condition, whatever parameter your literature search identified as disease-relevant. Record the exact modification (parameter, original/new value, rationale, citation) in a `modifications.json` sidecar per [[data-integration-api]]'s pattern, and append it to the logbook.
+3. **Register the modified circuit** to EntityCore via `register_circuit` (see [[data-integration-api]]; pass the original circuit as `parent`).
 4. **Configure and run two simulation campaigns** — one for the unmodified (control) circuit, one for the modified (disease) circuit — using the same stimulus/protocol for both so the comparison is apples-to-apples. Prefer obi-one's `CircuitSimulationScanConfig` API over writing simulation logic from scratch.
 5. **Download the results** (`spikes.h5`, `soma_voltage.h5`) for both campaigns.
 

@@ -144,6 +144,8 @@ Returns the computed metrics for a morphology.
 
 **Content-Type:** `multipart/form-data`
 
+> **2 GB per-file limit.** The infrastructure in front of obi-one rejects any single uploaded file above 2 GB before it reaches the app, so the error is not descriptive. For circuits with larger files, use [Large Circuits](#large-circuits-2-gb-remote-validation) below.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | ✓ | Circuit name |
@@ -154,7 +156,7 @@ Returns the computed metrics for a morphology.
 | `target_simulator` | string | ✓ | e.g. "NEURON" |
 | `circuit_archive` | file | ✓ | `.tar.gz` SONATA circuit archive |
 | `scale_override` | string | | e.g. "pair", "microcircuit", "mesocircuit" |
-| `parent_circuit_id` | UUID | | Parent circuit (for derived circuits) |
+| `parent_circuit_id` | UUID | | Direct parent circuit (the one this was derived from, **not** its root; the root is determined automatically). See "Parent vs. root" below |
 | `derivation_type` | string | | Required if parent set: e.g. "customization" |
 | `atlas_id` | UUID | | Brain atlas entity ID |
 | `license_id` | UUID | | License entity ID (required if `authorized_public=true`) |
@@ -165,7 +167,7 @@ Returns the computed metrics for a morphology.
 | `publications` | JSON string | | `{"10.1234/doi": {"type": "..."}}` |
 | `overview_image` | file | | Pre-computed overview image (.png/.webp) |
 | `sim_designer_image` | file | | Simulation designer image (.png) |
-| `authorized_public` | bool | | Make publicly visible (default: false) |
+| `authorized_public` | bool | | Make publicly visible (default: false). Keep `false` unless the user is a maintainer (see Important Rules) |
 | `dry_run` | bool | | Validate without registering (default: false) |
 
 **Response:**
@@ -190,13 +192,116 @@ Returns the computed metrics for a morphology.
 
 **Endpoint:** `POST /declared/circuit/{circuit_id}/validate?force=false`
 
-Re-triggers validation for a draft circuit. Pass `force=true` to re-validate active/disqualified circuits.
+Re-triggers validation for a draft circuit. Pass `force=true` to re-validate active/disqualified circuits. Pass `generate_assets=true` to also generate additional assets after successful validation (default `false`).
 
 ### Generate Circuit Assets
 
 **Endpoint:** `POST /declared/circuit/{circuit_id}/generate-assets?force=false`
 
 Generates compressed circuit and connectivity matrices for an active circuit.
+
+### Modifying a circuit
+
+There's no dedicated "circuit editing" API — modifications are direct file edits on the extracted circuit tree, done as ordinary code (no obi-one endpoint for this). General pattern:
+
+1. Copy the extracted/staged circuit directory (don't mutate the original — keep it for the control/baseline condition). **If the circuit was staged, its files are symlinks into the read-only `/data` mount** — copy with `shutil.copytree(..., symlinks=False)` (resolve the links to real files) so your edits don't fail with a read-only error or try to write back into the shared store.
+2. Locate the target file (e.g. a specific `.hoc` biophysical model file — for multi-cell circuits, be careful to target the right cell type, not e.g. an interneuron file when you meant the pyramidal cell).
+3. Apply a targeted, auditable change (e.g. a string replacement of a named conductance value) — assert the expected original value is present before replacing, so a silent no-op can't happen.
+4. Record what changed in a small sidecar file (e.g. `modifications.json`) alongside the modified circuit: parameter name, original value, new value, factor, rationale.
+5. Save the modification code itself somewhere reproducible.
+
+Split "copy" and "modify" into separate tool calls/steps where the execution environment has a short timeout — a transient failure shouldn't lose both steps at once.
+
+### Registering a (modified) circuit to EntityCore
+
+Use the `obi_one` Python SDK's `register_circuit` helper (pre-installed in the OBI sandbox), which returns the new `Circuit` entity with its `.id`.
+
+> **Parent vs. root.** The **parent** is the direct predecessor a circuit was derived from; the **root** is the topmost ancestor. Never pass an existing circuit's `root_circuit_id` as the new circuit's parent. Do not set `root` yourself: it defaults to `parent.root_circuit_id or parent.id`.
+> - Derived **from** an existing circuit (e.g. a modified version): pass it as `parent`, with a `derivation_type`.
+> - Same lineage as an existing circuit (e.g. reusing its metadata): look up that circuit's own parent via its derivation link (`client.search_entity(entity_type=models.Derivation, query={"generated__id": "<existing-circuit-id>"})`, take `.used` of the circuit-to-circuit derivation, ignoring `emodel_circuit` ones) and pass it as `parent`. If there is none, register without a parent.
+
+```python
+import os
+from entitysdk.client import Client
+from entitysdk.token_manager import TokenFromEnv
+from entitysdk.common import ProjectContext
+from entitysdk import models, types
+from obi_one.db_sdk.registration.circuit.register import register_circuit
+
+vlab_id    = os.environ.get("OBI_VLAB_ID", "")
+project_id = os.environ.get("OBI_PROJECT_ID", "")
+
+client = Client(
+    token_manager=TokenFromEnv("OBI_ACCESS_TOKEN"),
+    project_context=ProjectContext(virtual_lab_id=vlab_id, project_id=project_id),
+    environment=os.environ.get("OBI_ENVIRONMENT", "production"),
+)
+
+# Typically reuse brain_region and subject from the source circuit
+brain_region = client.get_entity(entity_id="<BRAIN_REGION_ID>", entity_type=models.BrainRegion)
+subject      = client.get_entity(entity_id="<SUBJECT_ID>",      entity_type=models.Subject)
+
+result = register_circuit(
+    client=client,
+    circuit_path="<PATH_TO_MODIFIED_CIRCUIT_DIR>",
+    name="<descriptive-name>",
+    description="<what changed and why>",
+    build_category=types.CircuitBuildCategory.computational_model,
+    brain_region=brain_region,
+    subject=subject,
+    target_simulator=types.TargetSimulator.NEURON,
+    skip_additional_assets=True,  # avoids slow asset generation (plots, matrices)
+    skip_validation=True,         # existing circuits may have minor SONATA issues
+)
+print(f"Registered circuit ID: {result.id}")
+
+# Verify it landed
+fetched = client.get_entity(entity_id=result.id, entity_type=models.Circuit)
+print(f"Confirmed: {fetched.name} — {fetched.id} (neurons={fetched.number_neurons})")
+```
+
+Sending raw HTTP requests directly to EntityCore is also fine for reads/simple writes. Prefer `entitysdk` for two reasons:
+
+1. **Path-staging** — when the operation needs to resolve an asset that lives on a given filesystem, or correctly set circuit paths inside simulation configs, `entitysdk`'s [`staging`](https://github.com/openbraininstitute/entitysdk/tree/main/src/entitysdk/staging) module (`stage_circuit`, `stage_simulation`, `stage_simulation_result`, `stage_sonata_from_memodel`) handles that.
+2. **Faster asset downloads in the OBI sandbox** — the sandbox has the entitycore private S3 bucket mounted locally at `/data/aws_s3_internal/private/<vlab_id>/<project_id>/assets/...`. A raw `requests.get(.../download)` always goes over the network regardless. `entitysdk`'s `fetch_*` methods (default strategy `local_or_download`) and `stage_*` methods (which call `fetch_*` internally) check that local mount first — a plain filesystem stat — and only fall back to a real download if the asset isn't there. This only works if the client is configured with a local store:
+   ```python
+   local_store = entitysdk.LocalAssetStore(prefix="/data")
+   client = entitysdk.Client(local_store=local_store, token_manager=..., project_context=...)
+   ```
+   Without this, `entitysdk`'s own `download_*` methods (strategy `download_only`) get no benefit over raw HTTP either — the speedup is specific to `fetch_*`/`stage_*` + a configured `LocalAssetStore`, not `entitysdk` in general. (Source: `openbraininstitute/prod-platform-architecture#219`.)
+
+   **Decision rule — stage over download:** with a `LocalAssetStore` configured, reach for a `stage_*` helper (or `fetch_*`) first and treat `download_*`/raw `requests.get(.../download)` as the fallback for when no local store is mounted. The `FetchFileStrategy` enum captures the spectrum: `link_or_download` (staging default — symlink from the mount, else download), `copy_or_download`, down to `download_only` (what `download_*` forces). The larger the entity, the more this matters: a circuit's `sonata_circuit` directory is effectively un-downloadable over plain HTTP (unbounded S3 prefix, times out), but `stage_circuit` resolves it as cheap symlinks regardless of size. So for circuits specifically, staging isn't just faster — it's the only reliable way to get the full SONATA tree.
+
+### Large Circuits (> 2 GB): remote validation
+
+For circuits with any file above 2 GB (or when the caller lacks the memory/disk/time for in-process validation), use `register_circuit_with_remote_validation` from `obi_one.db_sdk.registration.circuit.remote`. It uploads directly to EntityCore via `entitysdk` (no 2 GB limit), then runs validation and asset generation as remote jobs via `POST /declared/circuit/{id}/validate?generate_assets=true`. It accepts an uncompressed circuit folder or a `.gz` archive (a `.gz` is extracted locally; the compressed asset is regenerated remotely). Returns `(circuit, job_id)`.
+
+| Need | Use |
+|------|-----|
+| Large circuit, file > 2 GB, or constrained environment (e.g. 2 GB RAM sandbox) | `register_circuit_with_remote_validation` |
+| Small circuit, archive < 2 GB, HTTP only | `POST /declared/circuit/register` |
+| Full in-process control (debugging, offline full validation) | `register_circuit` / `register_circuit_from_metadata` (see above) |
+
+```python
+circuit, job_id = register_circuit_with_remote_validation(
+    client=client,                # entitysdk Client WITH a project context
+    obi_one_client=obi_one_client,  # httpx.Client, base_url ends in /api/obi-one, Authorization header set
+    circuit_path="path/to/circuit_folder_or_config_or_archive.gz",
+    name=..., description=..., build_category=..., target_simulator=...,
+    brain_region=..., subject=...,  # resolved entities (see obi_one.db_sdk.registration.circuit.resolve)
+    dry_run=True,                 # always dry-run first, then repeat with False
+)
+```
+
+Then poll `lifecycle_status` on the Circuit (`draft` → `active` or `disqualified`) or `GET /declared/task/{job_id}`. Additional assets appear shortly after the circuit becomes `active`.
+
+**Gotchas:**
+- No project context on the `client` raises `ValueError` up front (`dry_run=True` works without one).
+- The token on `obi_one_client` is fixed at creation; create the client right before registering.
+- If starting validation fails, the `draft` circuit stays registered: retry `POST /declared/circuit/{id}/validate?generate_assets=true` rather than re-registering (the name already exists).
+- `dry_run` does not run full SONATA validation (MOD/HOC checks); a circuit can still end up `disqualified` and needs fixing and re-registration (or `force=true` re-validation).
+- Client-side metadata computation still loads node properties into memory, so very large circuits can still hit memory limits.
+- Circuit customization (`/declared/circuit/customize`) has the same 2 GB per-file limit and no workaround yet. Say so explicitly if asked.
 
 ---
 
@@ -365,6 +470,8 @@ Step 3 replaces what would otherwise be three calls (entity creation, metrics, m
 - **Never create morphologies or circuits via EntityCore.** As of today they can only be registered through obi-one `/declared/` endpoints (`register-morphology-with-calculated-metrics`, `circuit/register`). This restriction is specific to these two types — other entities can be created in EntityCore, though the `/declared/` endpoints are preferred where they exist, since they resolve identifiers and generate assets. Reading from EntityCore (e.g. `GET /api/entitycore/circuit/{id}` to poll validation status) is fine — the rule is about creating these two types.
 - **Always validate morphology files first** — invalid files will cause downstream failures in mesh generation and simulations.
 - **Circuit archives must be valid SONATA** — the async validation job checks conformance and will set status to `disqualified` if it fails.
+- **Circuit files above 2 GB** — never use `POST /declared/circuit/register`; use `register_circuit_with_remote_validation` (see Large Circuits).
+- **Register circuits with `authorized_public=false` unless the user is a maintainer.** Most users are not. This applies to every registration route (`POST /declared/circuit/register`, `register_circuit`, `register_circuit_with_remote_validation`). Only set it to `true` if the user explicitly says they are a maintainer and want the circuit public.
 - **Contributors use persistent identifiers** — ORCID for persons, ROR for organizations. Don't create them with freeform names.
 - **Duplicate checking is automatic** — the API returns 409 Conflict if entities already exist.
 
