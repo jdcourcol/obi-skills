@@ -14,7 +14,6 @@ license: Apache-2.0
 > - [[obi-logbook]] — **mandatory** whenever this skill is used in service of a scientific question. See the Logbook section below.
 > - [[obi-links]] — every entity id and sandbox file handed to the user goes out as a hyperlink, never as a bare UUID or path. See the Linking section below.
 > - [[virtual-lab-manager-api]] — the virtual-lab / project context (`$OBI_VLAB_ID`, `$OBI_PROJECT_ID`) that scopes every EntityCore query. Read it from the environment, never from memory.
-> - [[morphoviewer-standalone]] — to *visualize* the skeleton (the plain SWC/H5 morphology) in a browser. **This** skill is about the spine data; morphoviewer renders the neurite skeleton, not the spine meshes.
 > - [[obi-circuit-simulation]] — when the spiny morphologies come from a `Circuit` (not a `CellMorphology`): how to find, **stage** (prefer symlink over download), and read a SONATA circuit. The "Alternative source — a Circuit with segmented spines" section below picks up from the staged `circuit_config.json`.
 
 > **Library docs:** Use the **`context7`** MCP server (when available) for up-to-date API documentation on `entitysdk`, the morph-spines library, ConnectomeUtilities (`conntility`), and `bluepysnap`. Call `context7:resolve-library-id("<library>")` then `context7:query-docs(...)`. The morph-spines source and format spec live at `github.com/openbraininstitute/morph-spines`; the path-distance calculator at `github.com/openbraininstitute/ConnectomeUtilities`.

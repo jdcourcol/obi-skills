@@ -97,7 +97,7 @@ There is no direct sandbox-to-sandbox transfer here either. The only supported p
 
 3. **PUT the raw file bytes via `bash_tool`.**
    ```bash
-   curl -sS -X PUT --data-binary @/mnt/user-data/uploads/sample-image.jpg "<upload_url>"
+   curl -sS -T /mnt/user-data/uploads/sample-image.jpg "<upload_url>"
    ```
    A `200` response with `"uploaded":true` confirms success.
 
@@ -113,11 +113,11 @@ There is no direct sandbox-to-sandbox transfer here either. The only supported p
 ```python
 # 2. Get an upload link
 {obi}:get-sandbox-upload-url(path="/home/jovyan/<topic>/inputs/sample-image.jpg")
-# -> { upload_url: "...", curl_command: "curl -X PUT --data-binary @'<local-file>' '...'", expires_in_seconds: 300 }
+# -> { upload_url: "...", curl_command: "<ready-made curl PUT command>", expires_in_seconds: 300 }
 ```
 ```bash
 # 3. PUT it (bash_tool)
-curl -sS -X PUT --data-binary @/mnt/user-data/uploads/sample-image.jpg "<upload_url>"
+curl -sS -T /mnt/user-data/uploads/sample-image.jpg "<upload_url>"
 ```
 
 ## The logbook is one of the files to bridge
