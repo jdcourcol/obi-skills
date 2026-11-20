@@ -1,12 +1,17 @@
 ---
 name: chat-obi-sandbox-bridge
-description: Claude Chat (claude.ai) specific — how to route work between the OBI (Open Brain Institute) compute sandbox and the Anthropic sandbox used by Claude Chat. Relies on Claude Chat's own tools (bash_tool, create_file, present_files) and is custom-built for that sandbox/artifact/egress model — do not assume it transfers to other Claude surfaces. Use whenever a task involves heavy computation, scientific/simulation workloads, large data processing, or any OBI tool (execute-python, execute-shell, get-sandbox-download-url, get-sandbox-upload-url) AND the result needs to reach the user as a file/artifact/plot/download, or the user has uploaded a file that OBI-side compute needs to read. Prefer OBI over running compute directly in bash_tool when an OBI connector is available. Also consult any time a file produced on OBI needs to be shown to the user or turned into an artifact, or a user upload needs to reach OBI.
+description: Transfer user uploads to the OBI sandbox or deliver OBI results as files, plots, or downloads. Use when an OBI workflow needs file transfer in Claude Chat, ChatGPT, or Codex. Select the host-specific instructions before transferring bytes.
 license: Apache-2.0
 ---
 
-# Claude Chat × OBI (Open Brain Institute) Sandbox Bridge
+# OBI sandbox file transfers
 
-> **Scope: Claude Chat (claude.ai) only.** This skill is written specifically against Claude Chat's tool set — `bash_tool`, `create_file`, `present_files`, and its particular sandbox/artifact/egress model. It's custom-built for this environment and shouldn't be assumed to apply anywhere else. If a version for another environment is needed later, it should get its own name/prefix rather than extending this one.
+For ChatGPT, Codex, and clients with local file tools, follow
+[the file-transfer guide](references/openai.md). Check the host's available
+tools and use its supported file delivery route.
+
+The instructions below apply to Claude Chat (claude.ai), using its
+`bash_tool`, `create_file`, and `present_files` tools.
 
 Two separate, non-connected sandboxes are in play. Knowing which one to use, and how to bridge them, is the whole point of this skill.
 
